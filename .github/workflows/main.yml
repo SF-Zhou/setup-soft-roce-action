@@ -1,14 +1,16 @@
-# setup-soft-roce-action
+name: Setup Soft-RoCE
 
-[![Setup Soft-RoCE](https://github.com/SF-Zhou/setup-soft-roce-action/actions/workflows/main.yml/badge.svg)](https://github.com/SF-Zhou/setup-soft-roce-action/actions/workflows/main.yml)
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-Setup [Soft-RoCE](https://github.com/Soft-RoCE) in GitHub Actions environment.
-
-### Usage
-
-Copy the following lines into you own workflow file.
-
-```yml
+jobs:
+  setup-soft-roce:
+    name: Setup Soft-RoCE
+    runs-on: ubuntu-latest
+    steps:
       - name: Setup Soft-RoCE
         run: |
           KERNEL_VERSION=$(uname -r | cut -d '-' -f 1)
@@ -26,4 +28,3 @@ Copy the following lines into you own workflow file.
           sudo insmod $RXE_PATH/rdma_rxe.ko
           sudo rdma link add rxe_0 type rxe netdev $ETHERNET_CARD
           rdma link
-```

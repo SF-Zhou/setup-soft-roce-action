@@ -20,4 +20,4 @@ jobs:
       - name: Verify Soft-RoCE
         env:
           DEVICE_NAME: ${{ steps.setup.outputs.device-name }}
-        run: rdma link show "$DEVICE_NAME"
+        run: rdma link show "$DEVICE_NAME/1"

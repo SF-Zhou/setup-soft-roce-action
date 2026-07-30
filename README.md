@@ -2,7 +2,7 @@
 
 [![Test](https://github.com/SF-Zhou/setup-soft-roce-action/actions/workflows/main.yml/badge.svg)](https://github.com/SF-Zhou/setup-soft-roce-action/actions/workflows/main.yml)
 
-Set up [Soft-RoCE](https://github.com/Soft-RoCE) on Ubuntu GitHub Actions runners.
+Set up [Soft-RoCE](https://github.com/SoftRoCE/rxe-dev/wiki/rxe-dev:-Home) on Ubuntu GitHub Actions runners.
 
 ## Usage
 

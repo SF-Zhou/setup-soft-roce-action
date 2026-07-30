@@ -1,0 +1,72 @@
+name: Setup Soft-RoCE
+description: Set up a Soft-RoCE device on Ubuntu GitHub Actions runners
+author: SF-Zhou
+
+branding:
+  icon: cpu
+  color: blue
+
+inputs:
+  interface:
+    description: Ethernet interface used by Soft-RoCE; detected automatically when omitted
+    required: false
+    default: ""
+  device-name:
+    description: Name of the Soft-RoCE device
+    required: false
+    default: rxe_0
+
+outputs:
+  interface:
+    description: Ethernet interface used by Soft-RoCE
+    value: ${{ steps.setup.outputs.interface }}
+  device-name:
+    description: Name of the Soft-RoCE device
+    value: ${{ steps.setup.outputs.device-name }}
+
+runs:
+  using: composite
+  steps:
+    - id: setup
+      name: Setup Soft-RoCE
+      shell: bash
+      env:
+        INPUT_INTERFACE: ${{ inputs.interface }}
+        INPUT_DEVICE_NAME: ${{ inputs.device-name }}
+      run: |
+        set -euo pipefail
+
+        ETHERNET_CARD="$INPUT_INTERFACE"
+        if [[ -z "$ETHERNET_CARD" ]]; then
+          ETHERNET_CARD=$(ip -o route show default | awk '{print $5; exit}')
+        fi
+        if [[ -z "$ETHERNET_CARD" ]]; then
+          ETHERNET_CARD=$(ip -o link show | awk -F ': ' '$2 !~ /^(lo|vir|wl)/ {print $2; exit}')
+        fi
+        ETHERNET_CARD=${ETHERNET_CARD%%@*}
+
+        if [[ -z "$ETHERNET_CARD" ]]; then
+          echo "::error::No suitable Ethernet interface found"
+          exit 1
+        fi
+
+        if ! sudo modprobe rdma_rxe; then
+          KERNEL_VERSION=$(uname -r | cut -d '-' -f 1)
+          KERNEL_NAME="linux-${KERNEL_VERSION%.0}"
+          DOWNLOAD_LINK="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/${KERNEL_NAME}.tar.xz"
+          RXE_PATH="/tmp/$KERNEL_NAME/drivers/infiniband/sw/rxe"
+
+          echo "Building rdma_rxe for kernel $KERNEL_VERSION from $DOWNLOAD_LINK"
+          wget -q "$DOWNLOAD_LINK" -O "/tmp/$KERNEL_NAME.tar.xz"
+          tar xf "/tmp/$KERNEL_NAME.tar.xz" --directory=/tmp
+          sed 's/$(CONFIG_RDMA_RXE)/m/g' "$RXE_PATH/Makefile" > "$RXE_PATH/Kbuild"
+          make -C "/lib/modules/$(uname -r)/build" M="$RXE_PATH" modules -j"$(nproc)"
+          sudo install -D -m 0644 "$RXE_PATH/rdma_rxe.ko" "/lib/modules/$(uname -r)/updates/rdma_rxe.ko"
+          sudo depmod -a
+          sudo modprobe rdma_rxe
+        fi
+
+        sudo rdma link add "$INPUT_DEVICE_NAME" type rxe netdev "$ETHERNET_CARD"
+        printf 'interface=%s\n' "$ETHERNET_CARD" >> "$GITHUB_OUTPUT"
+        printf 'device-name=%s\n' "$INPUT_DEVICE_NAME" >> "$GITHUB_OUTPUT"
+        rdma link

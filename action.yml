@@ -51,19 +51,22 @@ runs:
         fi
 
         if ! sudo modprobe rdma_rxe; then
-          KERNEL_VERSION=$(uname -r | cut -d '-' -f 1)
-          KERNEL_NAME="linux-${KERNEL_VERSION%.0}"
-          DOWNLOAD_LINK="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/${KERNEL_NAME}.tar.xz"
-          RXE_PATH="/tmp/$KERNEL_NAME/drivers/infiniband/sw/rxe"
+          if ! sudo apt-get install -y "linux-modules-extra-$(uname -r)" >/dev/null 2>&1 \
+            || ! sudo modprobe rdma_rxe; then
+            KERNEL_VERSION=$(uname -r | cut -d '-' -f 1)
+            KERNEL_NAME="linux-${KERNEL_VERSION%.0}"
+            DOWNLOAD_LINK="https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/${KERNEL_NAME}.tar.xz"
+            RXE_PATH="/tmp/$KERNEL_NAME/drivers/infiniband/sw/rxe"
 
-          echo "Building rdma_rxe for kernel $KERNEL_VERSION from $DOWNLOAD_LINK"
-          wget -q "$DOWNLOAD_LINK" -O "/tmp/$KERNEL_NAME.tar.xz"
-          tar xf "/tmp/$KERNEL_NAME.tar.xz" --directory=/tmp
-          sed 's/$(CONFIG_RDMA_RXE)/m/g' "$RXE_PATH/Makefile" > "$RXE_PATH/Kbuild"
-          make -C "/lib/modules/$(uname -r)/build" M="$RXE_PATH" modules -j"$(nproc)"
-          sudo install -D -m 0644 "$RXE_PATH/rdma_rxe.ko" "/lib/modules/$(uname -r)/updates/rdma_rxe.ko"
-          sudo depmod -a
-          sudo modprobe rdma_rxe
+            echo "Building rdma_rxe for kernel $KERNEL_VERSION from $DOWNLOAD_LINK"
+            wget --progress=dot:giga --tries=5 --timeout=30 --retry-connrefused "$DOWNLOAD_LINK" -O "/tmp/$KERNEL_NAME.tar.xz"
+            tar xf "/tmp/$KERNEL_NAME.tar.xz" --directory=/tmp
+            sed 's/$(CONFIG_RDMA_RXE)/m/g' "$RXE_PATH/Makefile" > "$RXE_PATH/Kbuild"
+            make -C "/lib/modules/$(uname -r)/build" M="$RXE_PATH" modules -j"$(nproc)"
+            sudo install -D -m 0644 "$RXE_PATH/rdma_rxe.ko" "/lib/modules/$(uname -r)/updates/rdma_rxe.ko"
+            sudo depmod -a
+            sudo modprobe rdma_rxe
+          fi
         fi
 
         sudo rdma link add "$INPUT_DEVICE_NAME" type rxe netdev "$ETHERNET_CARD"
